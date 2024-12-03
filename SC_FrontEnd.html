@@ -1,0 +1,143 @@
+import React, { useState, useEffect } from 'react';
+import { AlertCircle, Check, Copy, Loader2 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+const SecureClipboard = () => {
+  const [text, setText] = useState('');
+  const [key, setKey] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loginData, setLoginData] = useState({ username: '', password: '' });
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginData)
+      });
+      
+      if (!response.ok) throw new Error('Login failed');
+      setIsLoggedIn(true);
+    } catch (err) {
+      setError('Invalid credentials');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!text.trim()) return;
+    setLoading(true);
+    setError('');
+    
+    try {
+      const response = await fetch('/api/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+      
+      if (!response.ok) throw new Error('Save failed');
+      const data = await response.json();
+      setKey(data.key);
+    } catch (err) {
+      setError('Failed to save text');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      setError('Failed to copy text');
+    }
+  };
+
+  if (!isLoggedIn) {
+    return (
+      <Card className="w-full max-w-md mx-auto mt-8">
+        <CardHeader>
+          <CardTitle>Login to Secure Clipboard</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <Input
+              type="text"
+              placeholder="Username"
+              value={loginData.username}
+              onChange={(e) => setLoginData(prev => ({...prev, username: e.target.value}))}
+            />
+            <Input
+              type="password"
+              placeholder="Password"
+              value={loginData.password}
+              onChange={(e) => setLoginData(prev => ({...prev, password: e.target.value}))}
+            />
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? <Loader2 className="animate-spin" /> : 'Login'}
+            </Button>
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+          </form>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="w-full max-w-md mx-auto mt-8">
+      <CardHeader>
+        <CardTitle>Secure Clipboard</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <textarea
+          className="w-full min-h-[150px] p-2 border rounded"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Enter text to share securely..."
+        />
+        <div className="flex gap-2">
+          <Button onClick={handleSave} disabled={loading || !text.trim()}>
+            {loading ? <Loader2 className="animate-spin" /> : 'Save'}
+          </Button>
+          <Button onClick={handleCopy} disabled={!text.trim()}>
+            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+          </Button>
+        </div>
+        {key && (
+          <Alert>
+            <AlertDescription>
+              Secure key: {key}
+            </AlertDescription>
+          </Alert>
+        )}
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+export default SecureClipboard;
